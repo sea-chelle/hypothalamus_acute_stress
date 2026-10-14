@@ -1,0 +1,36 @@
+# load required packages
+library(DESeq2)
+library(ggplot2)
+
+# set working directory
+setwd(here("plots"))
+
+# format tph2 expression data for plotting
+tph2_counts <- plotCounts(dds, 
+                          gene = "ENSMUSG00000006764",
+                          intgroup = c("sex", "condition"),
+                          returnData = TRUE)
+tph2_counts$sample <- rownames(tph2_counts)
+
+
+# plot tph2 expression
+bar_tph2 <- ggplot(tph2_counts, aes(x = condition, y = count, fill = sex)) +
+  stat_summary(fun = mean, geom = "bar", position = position_dodge(width = 0.8), width = 0.7 ) +
+  geom_point(aes(group = sex), position = position_jitterdodge(jitter.width = 0.08, dodge.width = 0.8),
+             size = 1,
+             colour = "black",
+             show.legend = FALSE) +
+  scale_y_log10(expand = expansion(mult = c(0, 0.05))) +
+  labs(x = "Restraint duration (min)", y = expression("Normalised "*italic(Tph2)*" expression"), fill = "Sex") +
+  scale_fill_manual(values = c("m" = "#78A8D1", "f" = "#D78FA9"),
+                    labels = c("f" = "Female", "m" = "Male")) +
+  theme_classic() +
+  theme(axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        axis.line = element_line(linewidth = 0.3),
+        legend.position = "right",
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.size = unit(0.4, "cm"),
+        legend.box.spacing = unit(0, "pt"))
+ggsave(plot = bar_tph2, "fig4.5d_tph2_barplot.tiff", height = 3, width = 3, dpi = 600, compression = "lzw")
