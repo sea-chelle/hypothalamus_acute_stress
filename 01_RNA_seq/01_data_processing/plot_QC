@@ -1,0 +1,275 @@
+# load required packages
+library(here)
+library(DESeq2)
+library(ggplot2)
+library(ggrepel)
+library(limma)
+library(patchwork)
+library(ComplexHeatmap)
+library(circlize)
+
+# set working directory to plots
+setwd(here("plots"))
+
+# create a df of total counts for each sample
+library_df <- data.frame(Sample = names(colSums(counts(dds))), TotalCounts = colSums(counts(dds)))
+library_df$Sample <- sub("\\..*$", "", library_df$Sample) # keep animal number only in sample ID name
+
+# plot library size for each sample
+ggplot(library_df, aes(x = Sample, y = TotalCounts)) +
+  geom_bar(stat = "identity", fill = "#A995C9") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  labs(title = "Total counts per sample", y = "Total counts") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5, size = 11),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 9),
+        axis.text.x = element_text(angle = 90, size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.line = element_line(linewidth = 0.3))
+ggsave("figB.1_library_sizes.tiff", height = 2.5, width = 6, dpi = 600, compression = "lzw")
+
+
+# turn VST-normalised counts into a matrix
+vsd_mat <- assay(vsd)
+
+# run PCA before batch correction
+pca_before_batch <- prcomp(t(vsd_mat), scale. = FALSE)
+
+# calculate variance explained by each PC
+percentVar_before <- pca_before_batch$sdev^2 / sum(pca_before_batch$sdev^2) * 100
+percentVar_before[1:2]
+
+# get batch from vst object
+batch <- colData(vsd)$batch
+
+# create a df from pca results
+pca_before_batch_df <- as.data.frame(pca_before_batch$x)
+
+# add metadata to df
+pca_before_batch_df$sex <- colData(dds)$sex
+pca_before_batch_df$condition <- colData(dds)$condition
+pca_before_batch_df$batch <- colData(dds)$batch
+pca_before_batch_df$ID <- colData(dds)$ID
+pca_before_batch_df$sample <- rownames(colData(dds))
+pca_before_batch_df$group <- paste(pca_before_batch_df$sex, pca_before_batch_df$condition, sep = ":")
+
+# add which samples to label on plot
+pca_before_batch_df$label <- ifelse(pca_before_batch_df$ID %in% c("2097", "1034", "832", "831", "1045"),
+                                    pca_before_batch_df$ID,
+                                    "")
+
+# plot PCA by batch before batch correction
+PCA_before_batch <- ggplot(pca_before_batch_df, aes(x = PC1, y = PC2, color = batch)) +
+  geom_point(size = 1.5) +
+  geom_text_repel(aes(label = label), 
+                  size = 2, 
+                  color = "black", 
+                  max.overlaps = Inf) +
+  labs(title = "Before batch correction",
+       x = paste0("PC1 (", sprintf("%.1f", percentVar_before[1]), "%)"),
+       y = paste0("PC2 (", sprintf("%.1f", percentVar_before[2]), "%)"),
+       color = "Batch") +
+  scale_color_manual(values = c("may_2025" = "#A995C9",
+                                "nov_2025" = "#5FA9A2"),
+                     labels = c("may_2025" = "May 2025",
+                                "nov_2025" = "November 2025")) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 9),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.size = unit(0.4, "cm"),
+        legend.box.spacing = unit(0, "pt"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+ggsave(plot = PCA_before_batch, "fig4.1a_pca_before_batch.pdf", height = 3, width = 4.5, dpi = 300)
+
+# batch-correct transformed data
+vsd_mat <- removeBatchEffect(vsd_mat, batch = batch)
+
+# run PCA on batch-corrected data
+pca_after_batch <- prcomp(t(vsd_mat), scale. = FALSE)
+
+# calculate varianced explained by each PC
+percentVar_after <- pca_after_batch$sdev^2 / sum(pca_after_batch$sdev^2) * 100
+percentVar_after[1:2]
+
+# create a df from pca results
+pca_after_batch_df <- as.data.frame(pca_after_batch$x)
+
+# add metadata to df
+pca_after_batch_df$sex <- colData(dds)$sex
+pca_after_batch_df$condition <- colData(dds)$condition
+pca_after_batch_df$batch <- colData(dds)$batch
+pca_after_batch_df$ID <- colData(dds)$ID
+pca_after_batch_df$sample <- rownames(colData(dds))
+pca_after_batch_df$group <- paste(pca_after_batch_df$sex, pca_after_batch_df$condition, sep = ":")
+
+# add which samples to label on plot
+pca_after_batch_df$label <- ifelse(pca_after_batch_df$ID %in% c("2097", "1034", "832", "831", "1045"),
+                                   pca_after_batch_df$ID,
+                                   "")
+
+# plot PCA by batch after batch correction
+PCA_after_batch <- ggplot(pca_after_batch_df, aes(x = PC1, y = PC2, color = batch)) +
+  geom_point(size = 1.5) +
+  geom_text_repel(aes(label = label), 
+                  size = 3, 
+                  color = "black", 
+                  max.overlaps = Inf) +
+  labs(title = "After batch correction",
+       x = paste0("PC1 (", sprintf("%.1f", percentVar_after[1]), "%)"),
+       y = paste0("PC2 (", sprintf("%.1f", percentVar_after[2]), "%)"),
+       color = "Batch") +
+  scale_color_manual(values = c("may_2025" = "#A995C9",
+                                "nov_2025" = "#5FA9A2"),
+                     labels = c("may_2025" = "May 2025",
+                                "nov_2025" = "November 2025")) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 9),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.size = unit(0.4, "cm"),
+        legend.box.spacing = unit(0, "pt"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+ggsave(plot = PCA_after_batch, "fig4.1b_pca_after_batch.pdf", height = 3, width = 4.5, dpi = 300)
+
+# set order for sex
+pca_after_batch_df$sex <- factor(pca_after_batch_df$sex,
+                                 levels = c("m", "f"))
+
+# combine PCA before and after batch correction into one plot
+(PCA_before_batch + PCA_after_batch) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom",
+        legend.justification = "center")
+ggsave("fig4.1_pca_batch_correction.pdf", height = 3.5, width = 6, dpi = 300)
+
+# plot PCA with sample labels
+PCA_sex <- ggplot(pca_after_batch_df, aes(x = PC1, y = PC2, color = sex)) +
+  geom_point(size = 1.5) +
+  geom_text_repel(aes(label = label), 
+                  size = 2, 
+                  color = "black", 
+                  max.overlaps = Inf) +
+  labs(title = "PCA by sex",
+       x = paste0("PC1 (", sprintf("%.1f", percentVar_after[1]), "%)"),
+       y = paste0("PC2 (", sprintf("%.1f", percentVar_after[2]), "%)"),
+       color = "Sex") +
+  scale_color_manual(values = c("f" = "#D78FA9",
+                                "m" = "#78A8D1"),
+                     labels = c("f" = "Female",
+                                "m" = "Male")) +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 9),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.key.size = unit(0.4, "cm"),
+        legend.box.spacing = unit(0, "pt"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+ggsave(plot = PCA_sex, "figB.2a_pca_sex.pdf", height = 3, width = 4, dpi = 300)
+
+# set order for restraint duration
+pca_after_batch_df$condition <- factor(pca_after_batch_df$condition,
+                                       levels = c("basal", "10", "60"))
+
+# PCA plot by condition
+PCA_restraint <- ggplot(pca_after_batch_df, aes(x = PC1, y = PC2, color = condition)) +
+  geom_point(size = 1.5) +
+  geom_text_repel(aes(label = label), 
+                  size = 3, 
+                  color = "black", 
+                  max.overlaps = Inf) +
+  labs(title = "PCA by restraint duration",
+       x = paste0("PC1 (", sprintf("%.1f", percentVar_after[1]), "%)"),
+       y = paste0("PC2 (", sprintf("%.1f", percentVar_after[2]), "%)"),
+       color = "Restraint duration") +
+  scale_color_manual(values = c("basal" = "#A995C9",
+                                "10" = "#5FA9A2",
+                                "60" = "#DD805E"),
+                     labels = c("basal" = "Basal",
+                                "10" = "10 min ARS",
+                                "60" = "60 min ARS")) +
+  guides(color = guide_legend(nrow = 3, byrow = TRUE)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 9),
+        axis.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 7),
+        legend.position = "bottom",
+        legend.key.size = unit(0.4, "cm"),
+        legend.box.spacing = unit(0, "pt"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+ggsave(plot = PCA_restraint, "figB.2b_pca_condition.pdf", height = 3, width = 4.5, dpi = 300)
+
+# combine PCA by sex and restraint for PC 1 and 2 
+PCA_sex | PCA_restraint
+ggsave("figB.2_PCA1and2_sex_restraint.tiff", height = 4.5, width = 6)
+
+# calculate euclidean distance between samples
+sample_dists <- dist(t(vsd_mat))
+sample_dists <- as.matrix(sample_dists)
+
+# extract sample ID only from column names
+original_names <- colnames(sample_dists)
+sample_ids <- sub("\\..*", "", original_names)
+
+# apply sample ID names to distance matrix
+colnames(sample_dists) <- sample_ids
+rownames(sample_dists) <- sample_ids
+
+# create annotation dataframe
+split_info <- do.call(rbind, strsplit(original_names, "\\."))
+annotation_df <- data.frame(Sex = split_info[, 2], Condition = split_info[, 3])
+rownames(annotation_df) <- sample_ids
+
+# definte annotation colours
+ha <- HeatmapAnnotation(df = annotation_df,
+                        col = list(Sex = c("f" = "#D78FA9", "m" = "#78A8D1"), 
+                                   Condition = c("basal" = "#A995C9", "10" = "#5FA9A2", "60" = "#DD805E")), 
+                        annotation_name_side = "left")
+
+
+# plot heatmap
+ht <- Heatmap(sample_dists,
+              name = "Distance",
+              col = colorRamp2(c(min(sample_dists), max(sample_dists)), c("#fff7ec", "#D9364A")),
+              cluster_rows = TRUE,
+              cluster_columns = TRUE,
+              top_annotation = HeatmapAnnotation(df = annotation_df,
+                                                 col = list(Sex = c("f" = "#D78FA9", "m" = "#78A8D1"),
+                                                            Condition = c("basal" = "#A995C9", "10" = "#5FA9A2", "60" = "#DD805E")),
+                                                 annotation_name_side = "left",
+                                                 annotation_name_gp = gpar(fontsize = 8),
+                                                 annotation_legend_param = list(Sex = list(title_gp = gpar(fontsize = 7),
+                                                                                           labels_gp = gpar(fontsize = 7)),
+                                                                                Condition = list(title_gp = gpar(fontsize = 7),
+                                                                                                 labels_gp = gpar(fontsize = 7)))),
+              show_row_names = TRUE,
+              show_column_names = TRUE,
+              row_names_gp = gpar(fontsize = 8),
+              column_names_gp = gpar(fontsize = 8),
+              column_title = "Sample-to-Sample Distance",
+              column_title_gp = gpar(fontsize = 9),
+              width = unit(12, "cm"),
+              height = unit(12, "cm"),
+              heatmap_legend_param = list(title = "Euclidean Distance",
+                                          title_gp = gpar(fontsize = 7),
+                                          labels_gp = gpar(fontsize = 7)))
+
+# plot heatmap
+png("figB.3_sample_heatmap.png", height = 1900, width = 2000, res = 300)
+draw(ht,
+    merge_legends = TRUE)
+dev.off()
