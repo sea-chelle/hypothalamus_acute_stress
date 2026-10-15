@@ -2,7 +2,7 @@
 library(here)
 
 # eet working directory
-setwd(here("plots"))
+setwd(here("featureCounts"))
 
 # import count matrix
 cts <- read.delim("consensus_peak_count_matrix.tsv", row.names = 1, check.names = FALSE)
