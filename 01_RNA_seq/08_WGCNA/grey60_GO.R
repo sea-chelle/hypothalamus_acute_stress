@@ -1,4 +1,10 @@
-
+# load required packages
+library(here)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(dplyr)
+library(ggplot2)
+library(grid)
 
 # set working directory
 setwd(here("plots"))
@@ -62,7 +68,7 @@ grey60_GO_plot <- grey60_GO@result %>%
                         Description == "response to reactive oxygen species" ~ "ROS response",
                         Description == "p38MAPK cascade" ~ "p38 MAPK\ncascade",
                         Description == "response to progesterone" ~ "Progesterone\nresponse",
-                        Description == "regulation of inflammatory response" ~ "Inflammatory\nesponse",
+                        Description == "regulation of inflammatory response" ~ "Inflammatory\nresponse",
                         TRUE ~ Description))
 
 # dot plot
