@@ -1,0 +1,16 @@
+name: genomeplots
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3.11
+  - numpy=2.4.6
+  - pandas=3.0.6
+  - pybigwig=0.3.26
+  - ucsc-liftover=482
+  - pip
+  - pip:
+      - matplotlib==3.8.4
+      - pygenometracks==3.9
