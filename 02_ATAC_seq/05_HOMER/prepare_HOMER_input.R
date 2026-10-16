@@ -1,3 +1,7 @@
+# load required packages
+library(tidyverse)
+library(here)
+
 # set working directory
 setwd(here("HOMER"))
 
