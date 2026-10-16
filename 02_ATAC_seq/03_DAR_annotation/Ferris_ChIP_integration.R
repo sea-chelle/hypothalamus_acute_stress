@@ -44,16 +44,6 @@ for (comparison in names(comparisons)) {
   comparisons[[comparison]]$anno$H3K27ac <- overlapsAny(peak_gr, ferris_h3k27ac_mm39)
 }
 
-# add whether peak overlaps with h3k27ac peak for each comparison
-for (comparison in names(comparisons)) {
-  
-  peak_gr <- GRanges(seqnames = comparisons[[comparison]]$anno$seqnames,
-                     ranges = IRanges(start = comparisons[[comparison]]$anno$start,
-                                      end = comparisons[[comparison]]$anno$end))
-  
-  comparisons[[comparison]]$anno$H3K27ac <- overlapsAny(peak_gr, ferris_h3k27ac_mm39)
-}
-
 # number of peaks that overlap with h3k27ac peaks for each comparison
 for (comparison in names(comparisons)) {
   cat("\n", comparison, "\n")
